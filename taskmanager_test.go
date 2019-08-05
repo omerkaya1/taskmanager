@@ -9,58 +9,77 @@ import (
 
 var (
 	taskSlice = []func() error{func() error {
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond)
 		fmt.Println("First finished")
 		return nil
+
 	}, func() error {
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond)
 		fmt.Println("Second finished")
 		return nil
+
 	}, func() error {
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond)
 		fmt.Println("Third finished")
 		return nil
+
 	}, func() error {
-		time.Sleep(time.Second * 3)
+		time.Sleep(time.Millisecond * 3)
 		fmt.Println("Fourth finished")
 		return nil
+
 	}, func() error {
-		time.Sleep(time.Second * 6)
+		time.Sleep(time.Millisecond * 6)
 		fmt.Println("Fifth finished")
 		return nil
+
 	}, func() error {
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Millisecond * 5)
 		fmt.Println("Sixth finished with an error")
 		return fmt.Errorf("fourth error")
+
 	}, func() error {
-		time.Sleep(time.Second * 7)
+		time.Sleep(time.Millisecond * 7)
 		fmt.Println("Seventh finished with an error")
 		return fmt.Errorf("fifth error")
+
 	}, func() error {
-		time.Sleep(time.Second * 8)
+		time.Sleep(time.Millisecond * 8)
 		fmt.Println("Semi-final")
 		return nil
+
 	}, func() error {
-		time.Sleep(time.Second * 10)
-		fmt.Println("Almost final, with an error")
+		time.Sleep(time.Millisecond * 10)
+		fmt.Println("Almost final")
 		return nil
 	}, func() error {
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Millisecond * 9)
 		fmt.Println("Final, with an error")
 		return fmt.Errorf("yet another error")
+
 	}}
 )
 
 func TestWorker_ZeroErrorTolerance(t *testing.T) {
 	errNum := 0
-	test := make(chan int, errNum)
-	Worker(taskSlice[4:], 5, 0, test)
-	assert.NoError(t, nil)
-
+	start := time.Now()
+	TaskManager(taskSlice, 5, errNum)
+	stop := time.Now()
+	assert.WithinDuration(t, stop, start, time.Millisecond*12)
 }
 
-func TestWorker_OneErrorTolerance(t *testing.T) {
+func TestWorker_TwoErrorTolerance(t *testing.T) {
 	errNum := 2
-	test := make(chan int, errNum)
-	Worker(taskSlice, 5, errNum, test)
+	start := time.Now()
+	TaskManager(taskSlice, 5, errNum)
+	stop := time.Now()
+	assert.WithinDuration(t, stop, start, time.Millisecond*22)
+}
+
+func TestWorker_FullErrorTolerance(t *testing.T) {
+	errNum := 3
+	start := time.Now()
+	TaskManager(taskSlice, 10, errNum)
+	stop := time.Now()
+	assert.WithinDuration(t, stop, start, time.Millisecond*12)
 }

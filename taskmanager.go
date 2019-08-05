@@ -1,44 +1,58 @@
 package taskmanager
 
-func Worker(tasks []func() error, perTime, errLimit int, report chan<- int) {
-	if perTime <= 0 || len(tasks) == 0 {
+func TaskManager(tasks []func() error, numInParallel, errLimit int) {
+	if numInParallel < 0 || len(tasks) <= 0 {
 		return
 	}
 
-	taskChan := make(chan func() error, perTime)
+	taskChan := make(chan func() error, len(tasks))
 	errChan := make(chan error)
+	doneChan := make(chan bool)
+	toFinish, errCount := 0, 0
+	//defer close(errChan)
 
-	go enqueue(tasks, taskChan)
-	go manager(taskChan, errChan)
-
-	// The loop is used to handle cases when we either don't have errors or
-	// the allowed number of errors is equal to the number of
-	// errors encountered during the execution
-	for i := 0; i < len(tasks); i++ {
-		if e := <-errChan; e != nil {
-			report <- errLimit
-			errLimit--
-		}
-		if errLimit <= 0 {
-			return
+	// Initialise worker/workers
+	if numInParallel == 0 {
+		go worker(taskChan, doneChan, errChan)
+		toFinish++
+	} else {
+		for i := 0; i < numInParallel; i++ {
+			go worker(taskChan, doneChan, errChan)
+			toFinish++
 		}
 	}
-}
 
-func enqueue(taskSlice []func() error, taskCh chan func() error) {
-	for _, t := range taskSlice {
-		taskCh <- t
+	// Populate the task channel and then close it
+	for _, task := range tasks {
+		taskChan <- task
 	}
-}
+	close(taskChan)
 
-func manager(tasks chan func() error, errCh chan error) {
-	defer close(errCh)
-	// Do the tasks concurrently; the range will take care of the taskChan closure
-	for t := range tasks {
-		go func(task func() error, errChannel chan error) {
-			if e := task(); e != nil {
-				errChannel <- e
+	// Main work cycle, where we wait for all the workers to finish,
+	// simultaneously listening for what we get from the errChan
+WORK:
+	for {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				errCount++
 			}
-		}(t, errCh)
+			if errLimit < errCount {
+				break WORK
+			}
+		case <-doneChan:
+			if toFinish--; toFinish == 0 {
+				break WORK
+			}
+		}
 	}
+	return
+}
+
+func worker(tasksChan chan func() error, doneCh chan bool, errCh chan<- error) {
+	for task := range tasksChan {
+		errCh <- task()
+	}
+	doneCh <- true
+	return
 }
