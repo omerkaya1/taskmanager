@@ -5,54 +5,42 @@ func TaskManager(tasks []func() error, numInParallel, errLimit int) {
 		return
 	}
 
-	taskChan := make(chan func() error, len(tasks))
+	taskChan := make(chan func() error)
 	errChan := make(chan error)
-	doneChan := make(chan bool)
-	toFinish, errCount := 0, 0
-	//defer close(errChan)
 
-	// Initialise worker/workers
-	if numInParallel == 0 {
-		go worker(taskChan, doneChan, errChan)
-		toFinish++
-	} else {
-		for i := 0; i < numInParallel; i++ {
-			go worker(taskChan, doneChan, errChan)
-			toFinish++
-		}
+	//Initialise worker/workers
+	for i := 0; i < numInParallel; i++ {
+		go worker(taskChan, errChan)
 	}
 
-	// Populate the task channel and then close it
-	for _, task := range tasks {
-		taskChan <- task
-	}
-	close(taskChan)
+	// Populate the task channel
+	go taskDispatcher(tasks, taskChan, &errLimit)
 
-	// Main work cycle, where we wait for all the workers to finish,
-	// simultaneously listening for what we get from the errChan
 WORK:
 	for {
-		select {
-		case err := <-errChan:
+		if err, ok := <-errChan; ok {
 			if err != nil {
-				errCount++
+				errLimit--
 			}
-			if errLimit < errCount {
-				break WORK
-			}
-		case <-doneChan:
-			if toFinish--; toFinish == 0 {
-				break WORK
-			}
+		}
+		if errLimit < 0 {
+			break WORK
 		}
 	}
 	return
 }
 
-func worker(tasksChan chan func() error, doneCh chan bool, errCh chan<- error) {
+func worker(tasksChan chan func() error, errCh chan<- error) {
 	for task := range tasksChan {
 		errCh <- task()
 	}
-	doneCh <- true
-	return
+}
+
+func taskDispatcher(tasks []func() error, taskCh chan func() error, errLim *int) {
+	for _, task := range tasks {
+		if *errLim >= 0 {
+			taskCh <- task
+		}
+	}
+	close(taskCh)
 }
