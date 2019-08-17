@@ -71,7 +71,7 @@ func TestWorker_ZeroErrorTolerance(t *testing.T) {
 func TestWorker_TwoErrorTolerance(t *testing.T) {
 	errNum := 2
 	start := time.Now()
-	TaskManager(taskSlice, 6, errNum)
+	TaskManager(taskSlice, 2, errNum)
 	stop := time.Now()
 	assert.WithinDuration(t, stop, start, time.Millisecond*12)
 }
@@ -79,7 +79,7 @@ func TestWorker_TwoErrorTolerance(t *testing.T) {
 func TestWorker_FullErrorTolerance(t *testing.T) {
 	errNum := 3
 	start := time.Now()
-	TaskManager(taskSlice, 10, errNum)
+	TaskManager(taskSlice, 3, errNum)
 	stop := time.Now()
 	assert.WithinDuration(t, stop, start, time.Millisecond*12)
 }

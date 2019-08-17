@@ -7,24 +7,27 @@ func TaskManager(tasks []func() error, numInParallel, errLimit int) {
 
 	taskChan := make(chan func() error)
 	errChan := make(chan error)
+	readyChan := make(chan bool, numInParallel)
 
 	//Initialise worker/workers
 	for i := 0; i < numInParallel; i++ {
 		go worker(taskChan, errChan)
+		readyChan <- true
 	}
 
-	// Populate the task channel
-	go taskDispatcher(tasks, taskChan, &errLimit)
-
 WORK:
-	for {
-		if err, ok := <-errChan; ok {
-			if err != nil {
+	for i := 0; i < len(tasks); i++ {
+		select {
+		case e := <-errChan:
+			if e != nil {
 				errLimit--
 			}
-		}
-		if errLimit < 0 {
-			break WORK
+			readyChan <- true
+		case <-readyChan:
+			if errLimit < 0 {
+				break WORK
+			}
+			taskChan <- tasks[i]
 		}
 	}
 	return
@@ -34,13 +37,4 @@ func worker(tasksChan chan func() error, errCh chan<- error) {
 	for task := range tasksChan {
 		errCh <- task()
 	}
-}
-
-func taskDispatcher(tasks []func() error, taskCh chan func() error, errLim *int) {
-	for _, task := range tasks {
-		if *errLim >= 0 {
-			taskCh <- task
-		}
-	}
-	close(taskCh)
 }
