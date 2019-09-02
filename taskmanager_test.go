@@ -25,7 +25,7 @@ var (
 
 	}, func() error {
 		time.Sleep(time.Millisecond * 3)
-		fmt.Println("Fourth finished")
+		fmt.Println("Fourth finished with an error")
 		return fmt.Errorf("first error")
 
 	}, func() error {
@@ -79,7 +79,7 @@ func TestWorker_TwoErrorTolerance(t *testing.T) {
 func TestWorker_FullErrorTolerance(t *testing.T) {
 	errNum := 4
 	start := time.Now()
-	TaskManager(taskSlice, 5, errNum)
+	TaskManager(taskSlice, 3, errNum)
 	stop := time.Now()
-	assert.WithinDuration(t, stop, start, time.Millisecond*12)
+	assert.WithinDuration(t, stop, start, time.Millisecond*25)
 }
