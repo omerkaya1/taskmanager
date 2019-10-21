@@ -6,32 +6,26 @@ func TaskManager(tasks []func() error, numInParallel, errLimit int) {
 	}
 	// Workers will be communicating with the main routine via the task and error channels
 	taskChan := make(chan func() error)
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 	//Initialise worker/workers
 	for i := 0; i <= numInParallel; i++ {
 		go worker(taskChan, errChan)
 	}
 
-	// Tasks are added to the task channel in a separate goroutine
-	go func() {
-		for _, t := range tasks {
-			taskChan <- t
-		}
-	}()
-
 WORK:
 	for i := 0; i < len(tasks); {
 		select {
-		case e := <-errChan:
-			i++
-			if e != nil {
+		case err := <-errChan:
+			if err != nil {
 				errLimit--
 			}
+		default:
 			if errLimit < 0 {
+				close(taskChan)
 				break WORK
 			}
-		default:
-			break
+			taskChan <- tasks[i]
+			i++
 		}
 	}
 	return
